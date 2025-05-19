@@ -1,0 +1,14 @@
+# Dependencies
+/node_modules
+
+# Build Netlify locale (se usi Netlify CLI)
+.netlify
+
+# File di sistema operativo
+.DS_Store
+Thumbs.db
+
+# Log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
