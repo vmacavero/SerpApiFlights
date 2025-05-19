@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ricerca Voli Esplorativa (Netlify)</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; line-height: 1.6; background-color: #f4f4f4; color: #333; }
+        .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }
+        h1, h2 { color: #333; }
+        button {
+            background-color: #007bff; color: white; padding: 10px 15px;
+            border: none; border-radius: 4px; cursor: pointer; font-size: 16px;
+        }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        #results { margin-top: 20px; }
+        .weekend-block { margin-bottom: 30px; padding: 15px; background-color: #e9ecef; border-radius: 5px; }
+        .flight-offer {
+            border: 1px solid #ddd; padding: 15px; margin-bottom: 15px;
+            background-color: #f9f9f9; border-radius: 4px;
+        }
+        .flight-offer h3 { margin-top: 0; color: #0056b3; }
+        .flight-details p { margin: 5px 0; }
+        .flight-details strong { color: #555; }
+        .loader {
+            border: 4px solid #f3f3f3; border-top: 4px solid #3498db;
+            border-radius: 50%; width: 30px; height: 30px;
+            animation: spin 1s linear infinite; margin: 20px auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        .error { color: red; font-weight: bold; }
+        .info { color: #0056b3; font-style: italic; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Ricerca Voli Esplorativa (via Netlify Function)</h1>
+        <p class="info">
+            Questa pagina chiama una Netlify Function per cercare i voli.
+            La tua chiave API SerpApi deve essere configurata come variabile d'ambiente in Netlify (nome: SERPAPI_API_KEY).
+        </p>
+
+        <button id="searchButton">Cerca Voli Esplorativi</button>
+        <div id="loader" class="loader" style="display: none;"></div>
+        <div id="results"></div>
+    </div>
+
+    <script>
+        const BUDGET_MASSIMO = 150; // EUR
+        const ORARIO_PARTENZA_MINIMO = 16; // Ore (formato 24h)
+        const DEPARTURE_AIRPORT_ID = "BRI"; // Bari
+
+        // Date dei prossimi 6 weekend (Venerdì - Domenica)
+        // Calcolate a partire dal 19 Maggio 2025
+        const weekends = [
+            { outboundDate: "2025-05-23", returnDate: "2025-05-25", label: "23-25 Maggio 2025" },
+            { outboundDate: "2025-05-30", returnDate: "2025-06-01", label: "30 Maggio - 01 Giugno 2025" },
+            { outboundDate: "2025-06-06", returnDate: "2025-06-08", label: "06-08 Giugno 2025" },
+            { outboundDate: "2025-06-13", returnDate: "2025-06-15", label: "13-15 Giugno 2025" },
+            { outboundDate: "2025-06-20", returnDate: "2025-06-22", label: "20-22 Giugno 2025" },
+            { outboundDate: "2025-06-27", returnDate: "2025-06-29", label: "27-29 Giugno 2025" }
+        ];
+
+        const searchButton = document.getElementById('searchButton');
+        const resultsDiv = document.getElementById('results');
+        const loader = document.getElementById('loader');
+
+        searchButton.addEventListener('click', async () => {
+            resultsDiv.innerHTML = '';
+            loader.style.display = 'block';
+            searchButton.disabled = true;
+
+            for (const weekend of weekends) {
+                const weekendResultsDiv = document.createElement('div');
+                weekendResultsDiv.classList.add('weekend-block');
+                weekendResultsDiv.innerHTML = `<h2>Voli per il weekend: ${weekend.label}</h2>`;
+                resultsDiv.appendChild(weekendResultsDiv);
+
+                // Chiama la tua Netlify Function
+                const functionUrl = `/.netlify/functions/cercaVoliSerpApi?departure_id=${DEPARTURE_AIRPORT_ID}&outbound_date=${weekend.outboundDate}&return_date=${weekend.returnDate}`;
+
+                try {
+                    const response = await fetch(functionUrl);
+                    const data = await response.json(); 
+
+                    if (!response.ok) {
+                        throw new Error(data.error || `Errore dalla funzione Netlify: ${response.status}`);
+                    }
+                    
+                    const flightOffers = data.serpapi_response?.other_flights || data.serpapi_response?.best_flights || [];
+
+                    if (flightOffers.length === 0 && data.serpapi_response?.error) {
+                         weekendResultsDiv.innerHTML += `<p class="error">Errore da SerpApi (via Netlify Function): ${data.serpapi_response.error}</p>`;
+                    } else if (flightOffers.length === 0) {
+                        weekendResultsDiv.innerHTML += `<p>Nessuna offerta di volo trovata da SerpApi per questo weekend.</p>`;
+                    } else {
+                        let foundFlightsInWeekend = 0;
+                        flightOffers.forEach(offer => {
+                            const price = offer.price;
+                            const departureFlightDetails = offer.flights && offer.flights[0]; // Primo volo dell'andata
+                            
+                            if (!departureFlightDetails || !departureFlightDetails.departure_airport || !departureFlightDetails.departure_airport.time) {
+                                return; 
+                            }
+                            
+                            let departureHour = -1;
+                            const timeStr = departureFlightDetails.departure_airport.time;
+                            if (timeStr) {
+                                const matchPM = timeStr.match(/(\d+):\d+\s*PM/i);
+                                const matchAM = timeStr.match(/(\d+):\d+\s*AM/i);
+                                const match24 = timeStr.match(/(\d+):\d+/);
+                                if (matchPM) {
+                                    departureHour = parseInt(matchPM[1], 10);
+                                    if (departureHour !== 12) departureHour += 12;
+                                } else if (matchAM) {
+                                    departureHour = parseInt(matchAM[1], 10);
+                                    if (departureHour === 12) departureHour = 0; 
+                                } else if (match24) {
+                                    departureHour = parseInt(match24[1], 10);
+                                }
+                            }
+                            
+                            if (price && price <= BUDGET_MASSIMO && departureHour !== -1 && departureHour >= ORARIO_PARTENZA_MINIMO) {
+                                foundFlightsInWeekend++;
+                                const offerDiv = document.createElement('div');
+                                offerDiv.classList.add('flight-offer');
+                                let offerHTML = `<h3>${offer.destination || (departureFlightDetails.arrival_airport ? departureFlightDetails.arrival_airport.name : 'N/D')} - ${price} ${offer.currency || 'EUR'}</h3>`;
+                                offerHTML += `<div class="flight-details">`;
+                                offerHTML += `<p><strong>Tipo:</strong> ${offer.type || 'N/D (prob. A/R)'}</p>`;
+                                
+                                if (offer.flights && offer.flights.length > 0) {
+                                    const outboundLeg = offer.flights.find(leg => leg.travel_class === "Andata" || (leg.departure_airport && leg.departure_airport.id === DEPARTURE_AIRPORT_ID && offer.flights.length === 1 && !offer.flights[0].return_airport_name) || (offer.flights.length > 1 && leg.departure_airport.id === DEPARTURE_AIRPORT_ID));
+                                    const returnLeg = offer.flights.find(leg => leg.travel_class === "Ritorno" || (leg.arrival_airport && leg.arrival_airport.id === DEPARTURE_AIRPORT_ID && offer.flights.length === 1 && !offer.flights[0].departure_airport_name) || (offer.flights.length > 1 && leg.arrival_airport.id === DEPARTURE_AIRPORT_ID));
+                                    
+                                    // Se non trovo distinzione andata/ritorno ma ci sono due "legs", assumo il primo sia andata e il secondo ritorno
+                                    const legs = offer.flights; // ogni elemento di legs è un segmento
+                                    
+                                    // Andata (Outbound) - Il primo segmento o gruppo di segmenti
+                                    offerHTML += `<p><strong>Andata (${legs[0].departure_airport.id} -> ${legs[0].arrival_airport.id}):</strong></p>`;
+                                    legs.forEach(leg => { // Questo assume che 'legs' possa contenere più segmenti per l'andata e poi per il ritorno.
+                                                        // La struttura di 'offer.flights' di SerpApi può variare.
+                                                        // Per un volo diretto A->B, B->A, offer.flights avrà due elementi.
+                                                        // Se ci sono scali, ogni elemento è un segmento.
+                                                        // Questa logica di visualizzazione dei segmenti andata/ritorno potrebbe necessitare di affinamento
+                                                        // in base alla struttura esatta della risposta di SerpApi per voli con scali.
+                                        if(leg.departure_airport.id.includes(DEPARTURE_AIRPORT_ID) || (legs.indexOf(leg) < legs.length / 2 && legs.length > 1 ) || legs.length === 1){ // Semplice euristica per andata
+                                            offerHTML += `<p style="padding-left: 15px;">&nbsp;&nbsp;&nbsp;${leg.departure_airport.id} (${leg.departure_airport.time || 'N/D'}) &rarr; ${leg.arrival_airport.id} (${leg.arrival_airport.time || 'N/D'}) [${leg.airline || 'N/D'} ${leg.flight_number || ''}, Durata: ${leg.duration || 'N/D'}]</p>`;
+                                        }
+                                    });
+
+                                    // Ritorno (Inbound) - Il secondo segmento o gruppo di segmenti
+                                    if (legs.length > 1) { // Assumiamo ci sia un ritorno se ci sono più di 1 segmento totale
+                                         offerHTML += `<p><strong>Ritorno (${legs[legs.length -1].departure_airport.id} -> ${legs[legs.length -1].arrival_airport.id}):</strong></p>`;
+                                          legs.forEach(leg => {
+                                            if(leg.arrival_airport.id.includes(DEPARTURE_AIRPORT_ID) || (legs.indexOf(leg) >= legs.length / 2 && legs.length > 1)){ // Semplice euristica per ritorno
+                                                offerHTML += `<p style="padding-left: 15px;">&nbsp;&nbsp;&nbsp;${leg.departure_airport.id} (${leg.departure_airport.time || 'N/D'}) &rarr; ${leg.arrival_airport.id} (${leg.arrival_airport.time || 'N/D'}) [${leg.airline || 'N/D'} ${leg.flight_number || ''}, Durata: ${leg.duration || 'N/D'}]</p>`;
+                                            }
+                                        });
+                                    }
+
+
+                                } else {
+                                     offerHTML += `<p>Dettagli voli (tratte specifiche) non disponibili in questa struttura dati.</p>`;
+                                }
+                                offerHTML += `</div>`;
+                                offerDiv.innerHTML = offerHTML;
+                                weekendResultsDiv.appendChild(offerDiv);
+                            }
+                        });
+                        if (foundFlightsInWeekend === 0) {
+                            weekendResultsDiv.innerHTML += `<p>Nessun volo trovato per questo weekend che rispetti TUTTI i criteri (budget, orario partenza).</p>`;
+                        }
+                    }
+
+                } catch (error) {
+                    console.error("Errore chiamata Netlify Function:", error);
+                    weekendResultsDiv.innerHTML += `<p class="error">Si è verificato un errore: ${error.message}</p>`;
+                }
+            } // Fine loop weekend
+            loader.style.display = 'none';
+            searchButton.disabled = false;
+            alert("Ricerca completata per tutti i weekend!");
+        });
+    </script>
+</body>
+</html>

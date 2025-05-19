@@ -1,0 +1,14 @@
+{
+  "name": "netlify-voli-esplorativi-serpapi",
+  "version": "1.0.0",
+  "description": "Ricerca voli esplorativa con SerpApi e Netlify Functions",
+  "main": "index.html",
+  "dependencies": {
+    "node-fetch": "^2.6.7"
+  },
+  "scripts": {
+    "start": "echo \"Per testare localmente, usa 'netlify dev' dopo aver installato Netlify CLI. Altrimenti, fai deploy su Netlify.\""
+  },
+  "author": "",
+  "license": "ISC"
+}
