@@ -1,8 +1,10 @@
 [functions]
   directory = "netlify/functions"
-  node_bundler = "esbuild" # Aggiunto per specificare il bundler, può aiutare con le dipendenze
+  node_bundler = "esbuild" # Specifica il bundler per le funzioni Node.js
 
-[[redirects]] # Opzionale: per rendere l'URL della funzione più pulito, ma non strettamente necessario se chiami /.netlify/functions/
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
+# Opzionale: Se vuoi rendere l'URL della funzione piÃ¹ pulito,
+# ad esempio chiamando /api/cercaVoliSerpApi invece di /.netlify/functions/cercaVoliSerpApi
+# [[redirects]]
+#  from = "/api/*"
+#  to = "/.netlify/functions/:splat"
+#  status = 200
