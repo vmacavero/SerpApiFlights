@@ -1,14 +1,16 @@
 # Dependencies
 /node_modules
 
-# Build Netlify locale (se usi Netlify CLI)
+# Netlify build output or local dev
 .netlify
+netlify
 
-# File di sistema operativo
+# OS generated files
 .DS_Store
 Thumbs.db
 
-# Log
+# Log files
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+*.log
