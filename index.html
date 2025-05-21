@@ -3,73 +3,68 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ricerca Voli per Destinazioni (Netlify)</title>
+    <title>Voli Ispirazione Amadeus (Netlify)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; margin: 20px; line-height: 1.6; background-color: #f4f4f4; color: #333; }
         .container { background-color: #fff; padding: 20px; border-radius: 8px; box-shadow: 0 0 15px rgba(0,0,0,0.1); }
         h1 { color: #2c3e50; text-align: center; }
-        h2 { color: #34495e; border-bottom: 2px solid #3498db; padding-bottom: 5px; }
-        h3.destination-title { color: #16a085; margin-top: 25px; }
+        h2 { color: #34495e; border-bottom: 2px solid #0057s8; padding-bottom: 5px; } /* Amadeus blue */
         button {
-            background-color: #3498db; color: white; padding: 12px 20px; margin: 20px 0;
+            background-color: #0057s8; color: white; padding: 12px 20px; margin: 20px 0; /* Amadeus blue */
             border: none; border-radius: 5px; cursor: pointer; font-size: 16px;
             transition: background-color 0.3s ease; display: block; width: 100%; max-width: 300px; margin-left: auto; margin-right: auto;
         }
-        button:hover { background-color: #2980b9; }
+        button:hover { background-color: #00406b; }
         button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
         #results { margin-top: 20px; }
-        .weekend-block { margin-bottom: 30px; padding: 20px; background-color: #ecf0f1; border-radius: 5px; }
-        .flight-offer {
+        .weekend-block { margin-bottom: 30px; padding: 20px; background-color: #e9ecef; border-radius: 5px; }
+        .destination-offer { /* Cambiato da flight-offer */
             border: 1px solid #bdc3c7; padding: 15px; margin-bottom: 15px;
             background-color: #ffffff; border-radius: 4px; box-shadow: 0 2px 4px rgba(0,0,0,0.05);
         }
-        .flight-offer h4 { margin-top: 0; color: #2980b9; font-size: 1.1em; } /* Cambiato da h3 a h4 */
-        .flight-details p { margin: 6px 0; font-size: 0.95em; }
-        .flight-details strong { color: #2c3e50; }
-        .segment { padding-left: 15px; border-left: 2px solid #3498db; margin-left: 5px; margin-top: 8px;}
+        .destination-offer h3 { margin-top: 0; color: #0057s8; font-size: 1.2em; } /* Amadeus blue */
+        .destination-details p { margin: 6px 0; font-size: 0.95em; }
+        .destination-details strong { color: #2c3e50; }
         .loader {
-            border: 5px solid #f3f3f3; border-top: 5px solid #3498db;
+            border: 5px solid #f3f3f3; border-top: 5px solid #0057s8; /* Amadeus blue */
             border-radius: 50%; width: 40px; height: 40px;
             animation: spin 1s linear infinite; margin: 30px auto;
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         .error { color: #c0392b; background-color: #fadbd8; border: 1px solid #f1948a; padding: 10px; border-radius: 4px; font-weight: bold;}
-        .info { color: #2980b9; background-color: #eaf2f8; border: 1px solid #aed6f1; padding: 10px; border-radius: 4px; margin-bottom:20px; text-align: center;}
+        .info { color: #0057s8; background-color: #e0eef9; border: 1px solid #a8cff0; padding: 10px; border-radius: 4px; margin-bottom:20px; text-align: center;}
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Ricerca Voli per Destinazioni</h1>
+        <h1>Voli Ispirazione Amadeus</h1>
         <p class="info">
-            Questa pagina cerca voli da Bari (BRI) per i prossimi 6 weekend verso destinazioni predefinite.<br>
-            Filtri applicati: Budget max 150 EUR, Partenza Venerdì dopo le 16:00.
+            Ricerca destinazioni da Bari (BRI) per i prossimi 6 weekend.<br>
+            Budget massimo: 150 EUR. Durata soggiorno: 3 giorni (es. Ven-Dom).<br>
+            <strong>Nota:</strong> L'API Flight Inspiration di Amadeus fornisce destinazioni e prezzi indicativi,
+            non necessariamente gli orari specifici dei voli per il filtro "Venerdì dopo le 16:00".
         </p>
 
-        <button id="searchButton">Cerca Voli</button>
+        <button id="searchButtonAmadeus">Cerca Destinazioni (Amadeus)</button>
         <div id="loader" class="loader" style="display: none;"></div>
         <div id="results"></div>
     </div>
 
     <script>
         const BUDGET_MASSIMO = 150; // EUR
-        const ORARIO_PARTENZA_MINIMO = 16; // Ore (formato 24h)
-        const DEPARTURE_AIRPORT_ID = "BRI";
-
-        // LISTA DI DESTINAZIONI DA TESTARE (codici IATA di aeroporto o città)
-        // ATTENZIONE: PIÙ DESTINAZIONI = PIÙ CHIAMATE API!
-        // Esempio: 3 destinazioni * 6 weekend = 18 chiamate API
-        const DESTINAZIONI_TARGET = ["ROM", "MIL", "PAR", "LON", "BER"]; // Esempio: Roma, Milano, Parigi, Londra, Berlino
+        const DEPARTURE_AIRPORT_ID = "BRI"; // Bari
+        const DURATION_STAY = "P3D"; // ISO 8601 duration: PnYnMnDTnHnMnS. P3D = 3 giorni.
 
         const weekends = [
-            { outboundDate: "2025-05-23", returnDate: "2025-05-25", label: "23-25 Maggio 2025" },
-            { outboundDate: "2025-05-30", returnDate: "2025-06-01", label: "30 Maggio - 01 Giugno 2025" },
-            { outboundDate: "2025-06-06", returnDate: "2025-06-08", label: "06-08 Giugno 2025" },
-            { outboundDate: "2025-06-13", returnDate: "2025-06-15", label: "13-15 Giugno 2025" },
-            { outboundDate: "2025-06-20", returnDate: "2025-06-22", label: "20-22 Giugno 2025" },
-            { outboundDate: "2025-06-27", returnDate: "2025-06-29", label: "27-29 Giugno 2025" }
+            { departureDate: "2025-05-23", label: "Weekend 23-25 Maggio 2025" },
+            { departureDate: "2025-05-30", label: "Weekend 30 Maggio - 01 Giugno 2025" },
+            { departureDate: "2025-06-06", label: "Weekend 06-08 Giugno 2025" },
+            { departureDate: "2025-06-13", label: "Weekend 13-15 Giugno 2025" },
+            { departureDate: "2025-06-20", label: "Weekend 20-22 Giugno 2025" },
+            { departureDate: "2025-06-27", label: "Weekend 27-29 Giugno 2025" }
         ];
 
-        const searchButton = document.getElementById('searchButton');
+        const searchButton = document.getElementById('searchButtonAmadeus');
         const resultsDiv = document.getElementById('results');
         const loader = document.getElementById('loader');
 
@@ -77,114 +72,68 @@
             resultsDiv.innerHTML = '';
             loader.style.display = 'block';
             searchButton.disabled = true;
-            let overallFoundFlights = 0;
+            let overallFoundDestinations = 0;
 
             for (const weekend of weekends) {
                 const weekendResultsDiv = document.createElement('div');
                 weekendResultsDiv.classList.add('weekend-block');
-                weekendResultsDiv.innerHTML = `<h2>Voli per il weekend: ${weekend.label}</h2>`;
+                weekendResultsDiv.innerHTML = `<h2>Destinazioni per il ${weekend.label}</h2>`;
                 resultsDiv.appendChild(weekendResultsDiv);
 
-                for (const destination of DESTINAZIONI_TARGET) {
-                    weekendResultsDiv.innerHTML += `<h3 class="destination-title">Destinazione: ${destination}</h3>`;
-                    
-                    const functionUrl = `/.netlify/functions/cercaVoliSerpApi?departure_id=${DEPARTURE_AIRPORT_ID}&arrival_id=${destination}&outbound_date=${weekend.outboundDate}&return_date=${weekend.returnDate}`;
+                const functionUrl = `/.netlify/functions/cercaVoliAmadeus?origin=${DEPARTURE_AIRPORT_ID}&departureDate=${weekend.departureDate}&duration=${DURATION_STAY}&maxPrice=${BUDGET_MASSIMO}`;
 
-                    try {
-                        const response = await fetch(functionUrl);
-                        const dataWrapper = await response.json(); 
+                try {
+                    const response = await fetch(functionUrl);
+                    const dataWrapper = await response.json(); 
 
-                        if (!response.ok) {
-                            throw new Error(dataWrapper.error || `Errore dalla funzione Netlify per ${destination}: ${response.status}`);
-                        }
-                        
-                        const data = dataWrapper.serpapi_response;
-                        // Per ricerche dirette (con arrival_id), i risultati sono spesso in 'best_flights' o 'other_flights'
-                        // oppure, se c'è solo un risultato principale, potrebbe essere in 'flight_itineraries' o simile.
-                        // È importante controllare la struttura della risposta di SerpApi per questo tipo di query.
-                        // Assumiamo che 'best_flights' o 'other_flights' contengano le opzioni.
-                        const flightOffers = data?.best_flights || data?.other_flights || [];
-                        
-                        if (flightOffers.length === 0 && data?.error) {
-                             weekendResultsDiv.innerHTML += `<p class="error">Errore da SerpApi per ${destination}: ${data.error}</p>`;
-                        } else if (flightOffers.length === 0) {
-                            weekendResultsDiv.innerHTML += `<p>Nessuna offerta di volo trovata da SerpApi per ${destination} in questo weekend.</p>`;
-                        } else {
-                            let foundFlightsForDestInWeekend = 0;
-                            flightOffers.forEach(offer => {
-                                const price = offer.price;
-                                const firstLegOfOutbound = offer.flights && offer.flights[0]; 
-                                
-                                if (!firstLegOfOutbound || !firstLegOfOutbound.departure_airport || !firstLegOfOutbound.departure_airport.time) {
-                                    console.warn("Dati di partenza del primo segmento mancanti per l'offerta:", offer);
-                                    return; 
-                                }
-                                
-                                let departureHour = -1;
-                                const timeStr = firstLegOfOutbound.departure_airport.time;
-                                if (timeStr) {
-                                    // Logica di parsing orario (invariata)
-                                    const matchPM = timeStr.match(/(\d+):\d+\s*PM/i);
-                                    const matchAM = timeStr.match(/(\d+):\d+\s*AM/i);
-                                    const match24 = timeStr.match(/(\d+):\d+/);
-                                    if (matchPM) {
-                                        departureHour = parseInt(matchPM[1], 10);
-                                        if (departureHour !== 12) departureHour += 12;
-                                    } else if (matchAM) {
-                                        departureHour = parseInt(matchAM[1], 10);
-                                        if (departureHour === 12) departureHour = 0; 
-                                    } else if (match24) {
-                                        departureHour = parseInt(match24[1], 10);
-                                    }
-                                }
-                                
-                                if (price && price <= BUDGET_MASSIMO && departureHour !== -1 && departureHour >= ORARIO_PARTENZA_MINIMO) {
-                                    foundFlightsForDestInWeekend++;
-                                    overallFoundFlights++;
-                                    const offerDiv = document.createElement('div');
-                                    offerDiv.classList.add('flight-offer');
-                                    // Il campo 'destination' potrebbe non esserci più se cerchiamo una arrival_id specifica
-                                    // Usiamo arrival_id della prima tratta come riferimento se 'destination' manca.
-                                    let displayDestination = offer.destination || (firstLegOfOutbound.arrival_airport ? `${firstLegOfOutbound.arrival_airport.name} (${firstLegOfOutbound.arrival_airport.id})` : destination);
-                                    offerDiv.innerHTML = `<h4>Volo per ${displayDestination} - ${price} ${offer.currency || 'EUR'}</h4>`;
-                                    offerHTML += `<div class="flight-details">`;
-                                    offerHTML += `<p><strong>Tipo Viaggio:</strong> ${offer.type || 'Andata e Ritorno'}</p>`;
-                                    
-                                    if (offer.flights && offer.flights.length > 0) {
-                                        offerHTML += `<strong>Dettaglio Tratte:</strong>`;
-                                        offer.flights.forEach((leg, index) => {
-                                            offerHTML += `<div class="segment">`;
-                                            offerHTML += `<p><strong>Segmento ${index + 1}:</strong> ${leg.departure_airport.id} (${leg.departure_airport.time || 'N/D'}) &rarr; ${leg.arrival_airport.id} (${leg.arrival_airport.time || 'N/D'})</p>`;
-                                            offerHTML += `<p><em>Compagnia:</em> ${leg.airline || 'N/D'}, <em>N. Volo:</em> ${leg.flight_number || ''}, <em>Durata:</em> ${leg.duration || 'N/D'}, Classe: ${leg.travel_class || 'N/D'}</p>`;
-                                            if(leg.layover){
-                                                offerHTML += `<p><em>Scalo: ${leg.layover}</em></p>`;
-                                            }
-                                            offerHTML += `</div>`;
-                                        });
-                                    } else {
-                                         offerHTML += `<p>Dettagli voli (tratte specifiche) non disponibili.</p>`;
-                                    }
-                                    offerHTML += `</div>`;
-                                    offerDiv.innerHTML = offerHTML; // Correzione: offerDiv.innerHTML = offerHTML; invece di +=
-                                    weekendResultsDiv.appendChild(offerDiv);
-                                }
-                            });
-                            if (foundFlightsForDestInWeekend === 0) {
-                                weekendResultsDiv.innerHTML += `<p>Nessun volo trovato per ${destination} in questo weekend che rispetti TUTTI i criteri.</p>`;
-                            }
-                        }
-                    } catch (error) {
-                        console.error(`Errore durante la ricerca per ${weekend.label}, Dest: ${destination}:`, error);
-                        weekendResultsDiv.innerHTML += `<p class="error">Si è verificato un errore per ${destination}: ${error.message}</p>`;
+                    if (!response.ok) {
+                        throw new Error(dataWrapper.error || `Errore dalla funzione Netlify: ${response.status}`);
                     }
-                } // Fine loop destinazioni
+                    
+                    const amadeusData = dataWrapper.amadeus_response;
+                    // console.log(`Risposta JSON da Amadeus per ${weekend.label}:`, JSON.stringify(amadeusData, null, 2)); // Per DEBUG
+                    
+                    const destinations = amadeusData?.data || []; // L'array 'data' contiene le destinazioni
+                    
+                    if (destinations.length === 0 && amadeusData?.errors) {
+                         const errorMsg = amadeusData.errors[0]?.detail || amadeusData.errors[0]?.title || "Errore sconosciuto da Amadeus."
+                         weekendResultsDiv.innerHTML += `<p class="error">Errore da Amadeus: ${errorMsg}</p>`;
+                    } else if (destinations.length === 0) {
+                        weekendResultsDiv.innerHTML += `<p>Nessuna destinazione trovata da Amadeus per questo weekend con i criteri dati.</p>`;
+                    } else {
+                        overallFoundDestinations += destinations.length;
+                        destinations.forEach(dest => {
+                            const offerDiv = document.createElement('div');
+                            offerDiv.classList.add('destination-offer');
+                            
+                            let offerHTML = `<h3>Destinazione: ${dest.destination}</h3>`;
+                            offerHTML += `<div class="destination-details">`;
+                            offerHTML += `<p><strong>Prezzo Totale Indicativo:</strong> ${dest.price?.total} ${dest.price?.currency || 'EUR'}</p>`;
+                            offerHTML += `<p><strong>Data Partenza (indicativa):</strong> ${dest.departureDate}</p>`;
+                            offerHTML += `<p><strong>Data Ritorno (indicativa):</strong> ${dest.returnDate}</p>`; // Amadeus la calcola
+                            if (dest.links?.flightOffers) {
+                                offerHTML += `<p><a href="${dest.links.flightOffers}" target="_blank" rel="noopener noreferrer">Vedi offerte di volo specifiche</a> (richiede altra chiamata API)</p>`;
+                            }
+                            offerHTML += `</div>`;
+                            offerDiv.innerHTML = offerHTML;
+                            weekendResultsDiv.appendChild(offerDiv);
+                        });
+                    }
+
+                } catch (error) {
+                    console.error(`Errore durante la ricerca Amadeus per ${weekend.label}:`, error);
+                    const errorP = document.createElement('p');
+                    errorP.classList.add('error');
+                    errorP.textContent = `Si è verificato un errore per il ${weekend.label}: ${error.message}`;
+                    weekendResultsDiv.appendChild(errorP);
+                }
             } // Fine loop weekend
             loader.style.display = 'none';
             searchButton.disabled = false;
-            if(overallFoundFlights > 0){
-                alert(`Ricerca completata! Trovati ${overallFoundFlights} voli validi in totale.`);
+            if(overallFoundDestinations > 0){
+                alert(`Ricerca completata! Trovate ${overallFoundDestinations} opzioni di destinazione in totale (controlla i dettagli per ogni weekend).`);
             } else {
-                alert("Ricerca completata. Nessun volo ha soddisfatto tutti i criteri per nessuna combinazione di weekend/destinazione.");
+                alert("Ricerca completata. Nessuna destinazione trovata da Amadeus per i criteri specificati.");
             }
         });
     </script>
