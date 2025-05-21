@@ -26,7 +26,7 @@ exports.handler = async function(event, context) {
 
     const params = new URLSearchParams({
         api_key: SERPAPI_API_KEY,
-        engine: "Google Flights", // Assicurati sia questo!
+        engine: "google_flights", // Assicurati sia questo!
         hl: "it",
         gl: "it",
         currency: "EUR",
