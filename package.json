@@ -1,7 +1,7 @@
 {
-  "name": "serpapiflights-netlify",
+  "name": "netlify-amadeus-voli-esplorativi",
   "version": "1.0.0",
-  "description": "Ricerca voli SerpApi con Netlify Functions",
+  "description": "Ricerca voli esplorativa con Amadeus e Netlify Functions",
   "main": "index.html",
   "dependencies": {
     "node-fetch": "^2.6.7"
