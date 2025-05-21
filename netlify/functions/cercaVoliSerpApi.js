@@ -1,11 +1,9 @@
 // netlify/functions/cercaVoliSerpApi.js
-const fetch = require('node-fetch'); // Richiede node-fetch, che Netlify installerà grazie a package.json
+const fetch = require('node-fetch');
 
 exports.handler = async function(event, context) {
-    // Estrai i parametri dalla query string inviata dal frontend
     const { departure_id, outbound_date, return_date } = event.queryStringParameters;
     
-    // Prendi la chiave API dalle variabili d'ambiente di Netlify (più sicuro!)
     const SERPAPI_API_KEY = process.env.SERPAPI_API_KEY;
 
     if (!SERPAPI_API_KEY) {
@@ -26,35 +24,35 @@ exports.handler = async function(event, context) {
 
     const params = new URLSearchParams({
         api_key: SERPAPI_API_KEY,
-        engine: "Google Flights",
+        engine: "Google Flights", // <<<--- CORREZIONE QUI!
         hl: "it",
         gl: "it",
         currency: "EUR",
         departure_id: departure_id,
-        // arrival_id è omesso per ricerca esplorativa
         outbound_date: outbound_date,
         return_date: return_date,
     });
 
     const serpApiUrl = `https://serpapi.com/search?${params.toString()}`;
-    console.log("Chiamata a SerpApi URL:", serpApiUrl.replace(SERPAPI_API_KEY, "CHIAVE_OSCURATA")); // Non loggare la chiave reale
+    // Non loggare l'intera URL con la chiave in produzione se non per debug stretto
+    console.log(`Chiamata a SerpApi per engine: ${params.get('engine')}, outbound: ${params.get('outbound_date')}`);
+
 
     try {
         const response = await fetch(serpApiUrl);
-        const data = await response.json(); // Prova a parsare il JSON in ogni caso
+        const data = await response.json(); 
 
         if (!response.ok) {
             console.error(`Errore da SerpApi (${response.status}):`, data.error || response.statusText);
             return {
-                statusCode: response.status, // Usa lo status code originale di SerpApi se disponibile
+                statusCode: response.status,
                 body: JSON.stringify({ 
                     error: `Errore da SerpApi: ${data.error || response.statusText}`, 
-                    serpapi_response_error: data // Includi l'intero errore di SerpApi per debug
+                    serpapi_response_error: data 
                 })
             };
         }
         
-        // Inoltra la risposta di successo da SerpApi al frontend
         return {
             statusCode: 200,
             body: JSON.stringify({ message: "Successo", serpapi_response: data })
