@@ -59,7 +59,7 @@ exports.handler = async function(event, context) {
         inspirationUrl.searchParams.append('origin', origin);
         inspirationUrl.searchParams.append('departureDate', departureDate);
         inspirationUrl.searchParams.append('duration', duration); // Es. P3D per 3 giorni (Venerdì, Sabato, Domenica)
-        inspirationUrl.searchParams.append('maxPrice', maxPrice);
+        //inspirationUrl.searchParams.append('maxPrice', maxPrice);
         inspirationUrl.searchParams.append('viewBy', 'DESTINATION'); // Organizza per destinazione
 
         console.log(`INFO FUNZIONE: Chiamata a Amadeus Flight Inspiration: ${inspirationUrl.href.replace(accessToken, "TOKEN_OSCURATO")}`);
